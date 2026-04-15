@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LangChain Document Intelligence Suite</title>
+  <style>
+    /* ─── Reset & base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --surface2:  #22263a;
+      --border:    #2e3350;
+      --accent:    #1dc8a8;
+      --accent2:   #7c3aed;
+      --text:      #e2e8f0;
+      --text-dim:  #8892a4;
+      --user-msg:  #1e2d45;
+      --ai-msg:    #141a2e;
+      --danger:    #ef4444;
+      --warning:   #f59e0b;
+      --success:   #10b981;
+      --radius:    10px;
+      --shadow:    0 4px 24px rgba(0,0,0,.45);
+    }
+
+    html, body { height: 100%; font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+
+    /* ─── Layout ───────────────────────────────────────────────────── */
+    .app {
+      display: grid;
+      grid-template-rows: 56px 1fr;
+      height: 100vh;
+    }
+
+    /* ─── Header ───────────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      gap: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.3);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: -.3px;
+    }
+    .logo svg { flex-shrink: 0; }
+    .logo-badge {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header-controls { display: flex; align-items: center; gap: 10px; }
+    .api-key-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 12px;
+    }
+    .api-key-wrap label { font-size: .78rem; color: var(--text-dim); white-space: nowrap; }
+    .api-key-wrap input {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: .85rem;
+      width: 220px;
+      outline: none;
+    }
+    .api-key-wrap input::placeholder { color: var(--text-dim); }
+    #model-select {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: .82rem;
+      padding: 7px 10px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* ─── Main 2-column grid ────────────────────────────────────────── */
+    main {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      overflow: hidden;
+    }
+
+    /* ─── Left panel: document ─────────────────────────────────────── */
+    .doc-panel {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .panel-title {
+      font-weight: 600;
+      font-size: .88rem;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .panel-title .icon { color: var(--accent); }
+    .doc-stats { font-size: .72rem; color: var(--text-dim); }
+    .doc-area {
+      flex: 1;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+    }
+    .doc-samples-label { font-size: .75rem; color: var(--text-dim); }
+    .sample-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: .73rem;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      color: var(--text-dim);
+    }
+    .chip:hover { border-color: var(--accent); color: var(--accent); background: rgba(29,200,168,.08); }
+    #doc-input {
+      flex: 1;
+      min-height: 180px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: .84rem;
+      padding: 12px;
+      resize: none;
+      outline: none;
+      font-family: inherit;
+      line-height: 1.55;
+      transition: border-color .15s;
+    }
+    #doc-input:focus { border-color: var(--accent); }
+    #doc-input::placeholder { color: var(--text-dim); }
+
+    /* Quick actions */
+    .quick-actions {
+      padding: 0 16px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .quick-label { font-size: .74rem; color: var(--text-dim); margin-bottom: 2px; }
+    .actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .action-btn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: .79rem;
+      padding: 9px 12px;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color .15s, background .15s;
+    }
+    .action-btn:hover:not(:disabled) { border-color: var(--accent); background: rgba(29,200,168,.07); }
+    .action-btn:disabled { opacity: .4; cursor: not-allowed; }
+    .action-btn .ab-icon { font-size: 1rem; }
+    .action-btn .ab-text { display: flex; flex-direction: column; }
+    .action-btn .ab-name { font-weight: 600; }
+    .action-btn .ab-desc { font-size: .68rem; color: var(--text-dim); margin-top: 1px; }
+
+    /* ─── Right panel: chat ─────────────────────────────────────────── */
+    .chat-panel {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg);
+    }
+
+    /* Chain visualizer strip */
+    .chain-viz {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+      min-height: 52px;
+      scrollbar-width: thin;
+    }
+    .chain-step {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 11px;
+      font-size: .72rem;
+      white-space: nowrap;
+      opacity: .45;
+      transition: opacity .3s, border-color .3s, background .3s;
+    }
+    .chain-step.active {
+      opacity: 1;
+      border-color: var(--accent);
+      background: rgba(29,200,168,.12);
+      color: var(--accent);
+    }
+    .chain-step.done {
+      opacity: 1;
+      border-color: var(--success);
+      background: rgba(16,185,129,.1);
+      color: var(--success);
+    }
+    .chain-step.error {
+      opacity: 1;
+      border-color: var(--danger);
+      background: rgba(239,68,68,.1);
+      color: var(--danger);
+    }
+    .chain-arrow { color: var(--text-dim); font-size: .8rem; flex-shrink: 0; }
+    .chain-idle-text { font-size: .76rem; color: var(--text-dim); font-style: italic; }
+
+    /* Messages */
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      scrollbar-width: thin;
+    }
+    .msg {
+      display: flex;
+      gap: 10px;
+      max-width: 100%;
+      animation: fadeUp .25s ease both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .msg.user { flex-direction: row-reverse; }
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .85rem;
+      flex-shrink: 0;
+      font-weight: 700;
+    }
+    .user .avatar { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+    .ai .avatar { background: var(--surface2); color: var(--accent); border: 1px solid var(--border); }
+    .bubble {
+      max-width: 78%;
+      padding: 11px 15px;
+      border-radius: var(--radius);
+      font-size: .87rem;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+    .user .bubble { background: var(--user-msg); border: 1px solid rgba(29,200,168,.2); border-bottom-right-radius: 3px; }
+    .ai .bubble { background: var(--ai-msg); border: 1px solid var(--border); border-bottom-left-radius: 3px; }
+
+    /* Markdown-like formatting in bubbles */
+    .bubble strong { color: var(--accent); font-weight: 600; }
+    .bubble em { color: var(--text-dim); font-style: italic; }
+    .bubble ul, .bubble ol { padding-left: 18px; margin-top: 6px; }
+    .bubble li { margin-bottom: 4px; }
+    .bubble code {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: .82em;
+      color: #a5f3fc;
+    }
+    .bubble pre {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px;
+      margin-top: 8px;
+      overflow-x: auto;
+      font-size: .8rem;
+    }
+    .bubble pre code { background: none; border: none; padding: 0; color: inherit; }
+    .bubble .section-badge {
+      display: inline-block;
+      background: rgba(29,200,168,.15);
+      color: var(--accent);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: .74rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: .3px;
+    }
+
+    /* Streaming cursor */
+    .cursor {
+      display: inline-block;
+      width: 7px;
+      height: 14px;
+      background: var(--accent);
+      border-radius: 1px;
+      animation: blink .7s infinite;
+      vertical-align: text-bottom;
+      margin-left: 2px;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* Welcome card */
+    .welcome-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .welcome-card h2 { font-size: 1rem; margin-bottom: 8px; color: var(--text); }
+    .welcome-card p { font-size: .83rem; color: var(--text-dim); line-height: 1.6; }
+    .feature-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+    .feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: .8rem;
+      color: var(--text-dim);
+    }
+    .feature-item span:first-child { font-size: .95rem; flex-shrink: 0; }
+
+    /* Input area */
+    .input-area {
+      padding: 14px 20px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .input-wrap {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      padding: 10px 14px;
+      transition: border-color .15s;
+    }
+    .input-wrap:focus-within { border-color: var(--accent); }
+    #chat-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: .88rem;
+      resize: none;
+      outline: none;
+      font-family: inherit;
+      max-height: 120px;
+      line-height: 1.5;
+    }
+    #chat-input::placeholder { color: var(--text-dim); }
+    #send-btn {
+      background: linear-gradient(135deg, var(--accent), #17a88c);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      font-size: 1rem;
+      transition: opacity .15s, transform .1s;
+    }
+    #send-btn:hover:not(:disabled) { opacity: .85; transform: scale(1.05); }
+    #send-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: .83rem;
+      z-index: 9999;
+      opacity: 0;
+      transition: opacity .25s, transform .25s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .toast.err { border-color: var(--danger); color: var(--danger); }
+    .toast.ok { border-color: var(--success); color: var(--success); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+    /* Responsive */
+    @media (max-width: 760px) {
+      main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .doc-panel { max-height: 40vh; }
+      header { flex-wrap: wrap; height: auto; padding: 10px 14px; }
+      .api-key-wrap input { width: 140px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── Header ──────────────────────────────────────────────────────── -->
+  <header>
+    <div class="logo">
+      <!-- LangChain-style chain icon -->
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="28" height="28" rx="7" fill="#1dc8a8" fill-opacity=".15"/>
+        <path d="M7 14a7 7 0 0 1 7-7h.5" stroke="#1dc8a8" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M21 14a7 7 0 0 1-7 7h-.5" stroke="#7c3aed" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="9.5" cy="14" r="2.2" fill="#1dc8a8"/>
+        <circle cx="18.5" cy="14" r="2.2" fill="#7c3aed"/>
+      </svg>
+      <span class="logo-badge">LangChain</span>
+      <span style="color:var(--text-dim);font-weight:400">Document Intelligence</span>
+    </div>
+    <div class="header-controls">
+      <select id="model-select" title="Choose LLM model">
+        <option value="gpt-4o-mini">gpt-4o-mini</option>
+        <option value="gpt-4o">gpt-4o</option>
+        <option value="gpt-4-turbo">gpt-4-turbo</option>
+        <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
+      </select>
+      <div class="api-key-wrap" title="Your OpenAI API key – stored only in memory, never sent anywhere except OpenAI">
+        <label>🔑</label>
+        <input type="password" id="api-key" placeholder="sk-… OpenAI API key" autocomplete="off" spellcheck="false" />
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Main ────────────────────────────────────────────────────────── -->
+  <main>
+
+    <!-- Left: document panel -->
+    <div class="doc-panel">
+      <div class="panel-header">
+        <span class="panel-title"><span class="icon">📄</span> Document</span>
+        <span class="doc-stats" id="doc-stats">0 words</span>
+      </div>
+      <div class="doc-area">
+        <div>
+          <div class="doc-samples-label">Quick-load samples:</div>
+          <div class="sample-chips" id="sample-chips"></div>
+        </div>
+        <textarea id="doc-input" placeholder="Paste any text, article, meeting notes, code, or report here…&#10;&#10;Then ask questions, summarize, or use the quick actions below."></textarea>
+      </div>
+      <div class="quick-actions">
+        <div class="quick-label">⚡ One-click LangChain chains</div>
+        <div class="actions-grid">
+          <button class="action-btn" data-action="summarize">
+            <span class="ab-icon">📝</span>
+            <span class="ab-text">
+              <span class="ab-name">Summarize</span>
+              <span class="ab-desc">Concise overview</span>
+            </span>
+          </button>
+          <button class="action-btn" data-action="keypoints">
+            <span class="ab-icon">🎯</span>
+            <span class="ab-text">
+              <span class="ab-name">Key Points</span>
+              <span class="ab-desc">Top insights</span>
+            </span>
+          </button>
+          <button class="action-btn" data-action="actions">
+            <span class="ab-icon">✅</span>
+            <span class="ab-text">
+              <span class="ab-name">Action Items</span>
+              <span class="ab-desc">Tasks &amp; next steps</span>
+            </span>
+          </button>
+          <button class="action-btn" data-action="sentiment">
+            <span class="ab-icon">💬</span>
+            <span class="ab-text">
+              <span class="ab-name">Sentiment</span>
+              <span class="ab-desc">Tone &amp; emotion</span>
+            </span>
+          </button>
+          <button class="action-btn" data-action="eli5">
+            <span class="ab-icon">🧒</span>
+            <span class="ab-text">
+              <span class="ab-name">Explain Simply</span>
+              <span class="ab-desc">ELI5 version</span>
+            </span>
+          </button>
+          <button class="action-btn" data-action="critique">
+            <span class="ab-icon">🔍</span>
+            <span class="ab-text">
+              <span class="ab-name">Critique</span>
+              <span class="ab-desc">Gaps &amp; weaknesses</span>
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: chat panel -->
+    <div class="chat-panel">
+
+      <!-- Chain visualizer -->
+      <div class="chain-viz" id="chain-viz">
+        <span class="chain-idle-text">Chain steps will appear here during execution…</span>
+      </div>
+
+      <!-- Messages -->
+      <div class="messages" id="messages">
+        <div class="msg ai">
+          <div class="avatar">🦜</div>
+          <div class="bubble">
+            <div class="welcome-card">
+              <h2>👋 Welcome to the LangChain Document Intelligence Suite</h2>
+              <p>This demo showcases <strong>LangChain Expression Language (LCEL)</strong> chains running directly in your browser using the LangChain.js SDK. Each operation is a real <code>prompt | llm | parser</code> pipeline.</p>
+              <div class="feature-list">
+                <div class="feature-item"><span>📄</span><span>Paste any document on the left and ask questions about it in the chat</span></div>
+                <div class="feature-item"><span>⚡</span><span>Use quick-action chains (summarize, key points, action items, sentiment…)</span></div>
+                <div class="feature-item"><span>🔗</span><span>Watch the LangChain execution steps animate in the bar above</span></div>
+                <div class="feature-item"><span>🔑</span><span>Enter your OpenAI API key in the header to get started</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Input bar -->
+      <div class="input-area">
+        <div class="input-wrap">
+          <textarea id="chat-input" rows="1" placeholder="Ask a question about your document… (Enter to send, Shift+Enter for new line)"></textarea>
+        </div>
+        <button id="send-btn" title="Send (Enter)">➤</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!--
+  DOMPurify – sanitizes any HTML before it is written to the DOM.
+  Loaded from a classic script tag so it is available as window.DOMPurify
+  before the ES-module code runs.
+-->
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+
+<script type="module">
+/*
+ * CDN version pins (esm.sh):
+ *   @langchain/openai  0.5.10  – ChatOpenAI with streaming support
+ *   @langchain/core    0.3.59  – ChatPromptTemplate, StringOutputParser (LCEL)
+ *
+ * To update: replace the semver suffix in each URL. Always re-test streaming
+ * and chain wiring after a version bump since LCEL APIs evolve across minors.
+ */
+// ─── LangChain.js imports via esm.sh CDN ───────────────────────────────────
+import { ChatOpenAI }        from "https://esm.sh/@langchain/openai@0.5.10";
+import { ChatPromptTemplate } from "https://esm.sh/@langchain/core@0.3.59/prompts";
+import { StringOutputParser } from "https://esm.sh/@langchain/core@0.3.59/output_parsers";
+
+// ─── DOM refs ──────────────────────────────────────────────────────────────
+const apiKeyInput  = document.getElementById("api-key");
+const modelSelect  = document.getElementById("model-select");
+const docInput     = document.getElementById("doc-input");
+const docStats     = document.getElementById("doc-stats");
+const chatInput    = document.getElementById("chat-input");
+const sendBtn      = document.getElementById("send-btn");
+const messagesEl   = document.getElementById("messages");
+const chainViz     = document.getElementById("chain-viz");
+const toastEl      = document.getElementById("toast");
+
+// ─── Sample documents ──────────────────────────────────────────────────────
+const SAMPLES = {
+  "🚀 Startup Memo": `Subject: Q3 Strategy Pivot – Action Required
+
+Team,
+
+After reviewing our Q2 metrics, we need to realign our go-to-market strategy for Q3.
+Key findings:
+• CAC increased 38% YoY due to saturated paid channels
+• Organic growth from SEO content is up 22% and converting at 3× the rate
+• Enterprise tier (>500 seats) has 0 churn vs 14% in SMB tier
+
+Proposed pivots:
+1. Redirect 60% of paid ad budget to content + SEO for 90 days
+2. Hire two enterprise AEs by Aug 1; freeze SMB team headcount
+3. Ship "Teams" tier by Sep 15 to capture mid-market accounts
+4. Launch partner program with 3 integration partners in Q3
+
+Revenue target for Q3 remains $2.1M ARR. With these changes, our model projects 91% probability of hitting target.
+
+Please review the attached deck and respond with your concerns by Friday.
+
+— Maya (CEO)`,
+
+  "🏥 Medical Abstract": `Title: Efficacy of Intermittent Fasting on Type 2 Diabetes Markers
+
+Abstract:
+This 12-week randomized controlled trial enrolled 180 adults (ages 35–65) diagnosed with Type 2 Diabetes. Participants were randomly assigned to either a 16:8 intermittent fasting (IF) protocol or a standard calorie-restriction diet (control).
+
+Results:
+• Fasting blood glucose decreased by 18.4% in the IF group vs 6.2% in control (p<0.001)
+• HbA1c improved by 1.2 percentage points in IF vs 0.4 in control (p=0.003)
+• Body weight reduction: 5.8 kg (IF) vs 3.1 kg (control)
+• No significant adverse events were reported in either group
+
+Conclusion:
+The 16:8 intermittent fasting protocol demonstrated significantly greater improvements in glycemic control and weight reduction compared to standard calorie restriction. Further long-term studies are warranted to assess sustainability and cardiovascular outcomes.`,
+
+  "💻 Code Review": `Pull Request: Add rate limiting middleware
+
+Description:
+Implements token-bucket rate limiting on all public API endpoints to prevent abuse.
+
+Changes:
+- Added RateLimiter class using Redis INCR with TTL expiry
+- Middleware checks X-Forwarded-For header for true client IP
+- Returns 429 with Retry-After header when limit exceeded
+- Default: 100 requests/minute per IP, configurable via ENV
+
+Concerns:
+- We're trusting X-Forwarded-For which could be spoofed in some proxy configurations
+- The Redis key TTL is set at request time, not sliding window – power users could burst 200 req in 1 min
+- No tests for the edge case when Redis is unavailable (fallback behavior?)
+- Consider IP whitelisting for internal services
+
+Review requested from: @alice, @bob`,
+
+  "📰 Tech Article": `The Rise of Agentic AI: Moving Beyond Chatbots
+
+For the past two years, conversational AI dominated headlines. But 2025 marks a decisive shift: AI agents that can plan, execute multi-step tasks, and interact with external systems are moving from research demos to production deployments.
+
+Unlike traditional chatbots that respond to single prompts, agents maintain state across interactions, use tools (web search, code execution, APIs), and can decompose complex goals into subtasks.
+
+Early adopters report 40–60% productivity gains in knowledge work—software development, legal research, data analysis. However, challenges remain:
+
+Reliability: Current agents fail 15–30% of the time on complex multi-step tasks.
+Trust: Giving AI write access to systems (email, databases) creates new attack surfaces.
+Cost: GPT-4-class agents processing long contexts cost 10–50× more per task than simple chatbots.
+
+Frameworks like LangChain, LangGraph, and AutoGen are racing to standardize how developers compose agents. The question is no longer whether agentic AI will be widely deployed—but who will build the trust and reliability infrastructure to make it safe to do so.`,
+};
+
+// ─── Populate sample chips ─────────────────────────────────────────────────
+const chipsEl = document.getElementById("sample-chips");
+Object.entries(SAMPLES).forEach(([label, text]) => {
+  const btn = document.createElement("button");
+  btn.className = "chip";
+  btn.textContent = label;
+  btn.addEventListener("click", () => {
+    docInput.value = text;
+    updateDocStats();
+    showToast("Sample loaded ✓", "ok");
+  });
+  chipsEl.appendChild(btn);
+});
+
+// ─── Doc word count ────────────────────────────────────────────────────────
+function updateDocStats() {
+  const words = docInput.value.trim().split(/\s+/).filter(Boolean).length;
+  docStats.textContent = `${words.toLocaleString()} word${words !== 1 ? "s" : ""}`;
+}
+docInput.addEventListener("input", updateDocStats);
+
+// ─── Toast helper ──────────────────────────────────────────────────────────
+let _toastTimer = null;
+function showToast(msg, type = "") {
+  toastEl.textContent = msg;
+  toastEl.className = `toast show ${type}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { toastEl.className = "toast"; }, 3200);
+}
+
+// ─── Chain visualizer ─────────────────────────────────────────────────────
+const CHAIN_STEPS = [
+  { id: "input",    label: "📥 Input",           desc: "Document + prompt" },
+  { id: "template", label: "📋 PromptTemplate",  desc: "ChatPromptTemplate" },
+  { id: "llm",      label: "🤖 ChatOpenAI",      desc: "LLM inference" },
+  { id: "parser",   label: "🔤 OutputParser",    desc: "StringOutputParser" },
+  { id: "output",   label: "✅ Output",           desc: "Final response" },
+];
+
+function renderChainIdle() {
+  chainViz.innerHTML = `<span class="chain-idle-text">Chain steps will appear here during execution…</span>`;
+}
+
+function renderChain(activeId, doneIds = [], errorId = null) {
+  chainViz.innerHTML = "";
+  CHAIN_STEPS.forEach((step, i) => {
+    const el = document.createElement("div");
+    el.className = "chain-step";
+    if (errorId && step.id === errorId) el.className += " error";
+    else if (doneIds.includes(step.id)) el.className += " done";
+    else if (step.id === activeId) el.className += " active";
+    // Use textContent so that step.label (which contains emoji + text) is
+    // never treated as markup, even if the data source changes in the future.
+    const span = document.createElement("span");
+    span.textContent = step.label;
+    el.appendChild(span);
+    el.title = step.desc;
+    chainViz.appendChild(el);
+    if (i < CHAIN_STEPS.length - 1) {
+      const arrow = document.createElement("span");
+      arrow.className = "chain-arrow";
+      arrow.textContent = "→";
+      chainViz.appendChild(arrow);
+    }
+  });
+}
+
+// ─── Build a LangChain LCEL chain for a given system prompt ────────────────
+function buildChain(systemPrompt, apiKey, model) {
+  const llm = new ChatOpenAI({
+    openAIApiKey: apiKey,
+    modelName: model,
+    temperature: 0.4,
+    streaming: true,
+  });
+  const prompt = ChatPromptTemplate.fromMessages([
+    ["system", systemPrompt],
+    ["human",  "{input}"],
+  ]);
+  const parser = new StringOutputParser();
+  // LCEL pipe: prompt | llm | parser
+  return prompt.pipe(llm).pipe(parser);
+}
+
+// ─── System prompts per action ─────────────────────────────────────────────
+const SYSTEM_PROMPTS = {
+  qa: `You are a precise document analyst. Answer questions based ONLY on the provided document. If the answer is not in the document, say so clearly. Be concise and cite relevant passages when helpful.
+
+Document:
+{document}`,
+
+  summarize: `You are a professional summarizer. Create a clear, structured summary of the document below. Use bold headers for sections. Be concise but comprehensive.
+
+Document:
+{document}`,
+
+  keypoints: `Extract the most important key points from the document as a numbered list. Each point should be a single clear sentence. Focus on unique insights, decisions, and notable data.
+
+Document:
+{document}`,
+
+  actions: `Extract all action items, tasks, and next steps from the document. Format as a checklist with:
+- Who is responsible (if mentioned)
+- What needs to be done
+- Any deadline or priority mentioned
+
+If no action items exist, summarize the most logical follow-up steps.
+
+Document:
+{document}`,
+
+  sentiment: `Analyze the sentiment and emotional tone of the document. Cover:
+1. **Overall sentiment** (positive/negative/neutral/mixed) with confidence
+2. **Tone** (formal, casual, urgent, optimistic…)
+3. **Key emotional signals** – phrases or words that drive the tone
+4. **Intended audience reaction** – what reaction does the author want to provoke?
+
+Document:
+{document}`,
+
+  eli5: `Explain the main ideas of the document in simple terms that a curious 12-year-old could understand. Avoid jargon. Use short sentences and relatable analogies.
+
+Document:
+{document}`,
+
+  critique: `Critically analyze the document. Identify:
+1. **Logical gaps or unsupported claims**
+2. **Missing context or data**
+3. **Potential biases or assumptions**
+4. **Areas that need more detail or evidence**
+5. **Overall assessment**: is the document well-structured and convincing?
+
+Document:
+{document}`,
+};
+
+// ─── Messages helpers ──────────────────────────────────────────────────────
+function addMessage(role, html, streaming = false) {
+  const msg = document.createElement("div");
+  msg.className = `msg ${role}`;
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.textContent = role === "user" ? "U" : "🦜";
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  // Always sanitize the incoming HTML through DOMPurify before injecting
+  // it into the DOM so that any caller passing unsanitized content is
+  // protected by a consistent last-line-of-defence.
+  bubble.innerHTML = DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ["strong", "em", "code", "pre", "ul", "ol", "li", "br", "span", "div", "h2", "h3"],
+    ALLOWED_ATTR: ["class", "style"],
+  });
+  if (streaming) {
+    const cur = document.createElement("span");
+    cur.className = "cursor";
+    cur.id = "stream-cursor";
+    bubble.appendChild(cur);
+  }
+  msg.appendChild(avatar);
+  msg.appendChild(bubble);
+  messagesEl.appendChild(msg);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return bubble;
+}
+
+/**
+ * Escape all five HTML-special characters so that a string is safe to
+ * interpolate into HTML markup without risk of tag or attribute injection.
+ */
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
+ * Apply inline markdown (bold, italic, code, section badge) to an already
+ * HTML-escaped line.
+ *
+ * PRECONDITION: `escaped` must be the output of `escapeHtml()`.  The captured
+ * group `$1` in each substitution is safe to inject into HTML because it can
+ * only contain entity-encoded text, never raw tags or attribute injections.
+ */
+function applyInlineMarkdown(escaped) {
+  return escaped
+    // Section badge: lines beginning with ## or ###
+    .replace(/^#{2,3}\s+(.+)$/, '<span class="section-badge">$1</span>')
+    // Bold **...**
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    // Italic *...*
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    // Inline code `...`
+    .replace(/`([^`]+)`/g, "<code>$1</code>");
+}
+
+/**
+ * Convert a limited subset of Markdown to safe HTML.
+ *
+ * Processing is done line-by-line so that distinct lists (separated by a
+ * blank line or non-list content) are wrapped in separate <ul> elements,
+ * avoiding the greedy-regex grouping problem.  All user-controlled text is
+ * HTML-escaped before any markup is injected, and the final string is passed
+ * through DOMPurify before being set as innerHTML.
+ */
+function mdToHtml(text) {
+  const lines = text.split("\n");
+  const parts = [];
+  let inList = false;
+
+  for (const line of lines) {
+    // Escape the full line for use in non-list branches.
+    const escaped = escapeHtml(line);
+
+    // Test for list markers on the ORIGINAL line before HTML escaping so that
+    // inputs beginning with characters that get encoded (e.g. '<') do not
+    // falsely prevent a match.  The marker is then stripped from the original
+    // before escaping the remaining content.
+    const isBullet   = /^[-•]\s+/.test(line);
+    const isNumbered = /^\d+\.\s+/.test(line);
+
+    if (isBullet || isNumbered) {
+      if (!inList) { parts.push("<ul>"); inList = true; }
+      // Strip marker from original, then escape + mark up the content.
+      const raw     = isBullet ? line.replace(/^[-•]\s+/, "") : line.replace(/^\d+\.\s+/, "");
+      const content = escapeHtml(raw);
+      parts.push(`<li>${applyInlineMarkdown(content)}</li>`);
+    } else {
+      if (inList) { parts.push("</ul>"); inList = false; }
+      if (escaped.trim() === "") {
+        parts.push("<br/>");
+      } else {
+        parts.push(applyInlineMarkdown(escaped) + "<br/>");
+      }
+    }
+  }
+  if (inList) parts.push("</ul>");
+
+  // Sanitize before returning – removes any unexpected tags that may have
+  // slipped through (e.g. from LLM output that contains raw HTML).
+  return DOMPurify.sanitize(parts.join(""), {
+    ALLOWED_TAGS: ["strong", "em", "code", "pre", "ul", "ol", "li", "br", "span"],
+    ALLOWED_ATTR: ["class"],
+  });
+}
+
+// ─── Core invoke with streaming ────────────────────────────────────────────
+async function invokeChain(systemPrompt, userMessage, actionLabel) {
+  const apiKey = apiKeyInput.value.trim();
+  const model  = modelSelect.value;
+
+  if (!apiKey) {
+    showToast("⚠️  Please enter your OpenAI API key in the header", "err");
+    return;
+  }
+
+  setLoading(true);
+
+  // Step 1: Input ready
+  renderChain("input");
+  await tick(300);
+
+  let bubble;
+  try {
+    // Step 2: Build prompt template
+    renderChain("template", ["input"]);
+    await tick(250);
+
+    const chain = buildChain(systemPrompt, apiKey, model);
+
+    // Step 3: LLM inference starts
+    renderChain("llm", ["input", "template"]);
+
+    // Show AI message with streaming cursor
+    bubble = addMessage("ai", "", true);
+
+    let fullText = "";
+    const stream = await chain.stream({ input: userMessage, document: docInput.value || "(no document provided)" });
+
+    // Step 4: Streaming output → parser
+    renderChain("parser", ["input", "template", "llm"]);
+
+    for await (const chunk of stream) {
+      fullText += chunk;
+      // Update bubble live (strip cursor first, re-render, re-add cursor)
+      const cursor = document.getElementById("stream-cursor");
+      if (cursor) cursor.remove();
+      bubble.innerHTML = mdToHtml(fullText);
+      const cur = document.createElement("span");
+      cur.className = "cursor";
+      cur.id = "stream-cursor";
+      bubble.appendChild(cur);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    // Step 5: Done
+    renderChain("output", ["input", "template", "llm", "parser", "output"]);
+
+    // Remove cursor
+    const cursor = document.getElementById("stream-cursor");
+    if (cursor) cursor.remove();
+    bubble.innerHTML = mdToHtml(fullText);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    setTimeout(renderChainIdle, 2500);
+
+  } catch (err) {
+    renderChain(null, [], "llm");
+    // Prefer structured error fields (HTTP status, OpenAI SDK error code) over
+    // fragile message-string matching so detection stays reliable across SDK versions.
+    const status  = err?.status ?? err?.response?.status;
+    const code    = err?.code ?? err?.error?.code ?? "";
+    const isAuth  = status === 401
+      || code === "invalid_api_key"
+      || code === "authentication_error";
+    const display = isAuth
+      ? "❌ Authentication failed. Please check your OpenAI API key."
+      : `❌ Error: ${err?.message ?? String(err)}`;
+    if (bubble) {
+      const cursor = document.getElementById("stream-cursor");
+      if (cursor) cursor.remove();
+      // Build the error node with DOM APIs (not innerHTML) so err.message
+      // cannot inject markup even if it contains angle brackets.
+      bubble.innerHTML = "";
+      const errSpan = document.createElement("span");
+      errSpan.style.color = "var(--danger)";
+      errSpan.textContent = display;
+      bubble.appendChild(errSpan);
+    } else {
+      // addMessage path: build the node directly rather than passing raw HTML.
+      const errMsg2 = document.createElement("div");
+      errMsg2.className = "msg ai";
+      const av = document.createElement("div");
+      av.className = "avatar";
+      av.textContent = "🦜";
+      const bub = document.createElement("div");
+      bub.className = "bubble";
+      const sp = document.createElement("span");
+      sp.style.color = "var(--danger)";
+      sp.textContent = display;
+      bub.appendChild(sp);
+      errMsg2.appendChild(av);
+      errMsg2.appendChild(bub);
+      messagesEl.appendChild(errMsg2);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+    showToast(isAuth ? "Invalid API key" : "LLM error – see chat", "err");
+    setTimeout(renderChainIdle, 3000);
+  } finally {
+    setLoading(false);
+  }
+}
+
+function tick(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function setLoading(on) {
+  sendBtn.disabled   = on;
+  chatInput.disabled = on;
+  document.querySelectorAll(".action-btn").forEach(b => b.disabled = on);
+}
+
+// ─── Q&A handler (chat input) ──────────────────────────────────────────────
+async function handleSend() {
+  const q = chatInput.value.trim();
+  if (!q) return;
+  chatInput.value = "";
+  chatInput.style.height = "auto";
+  addMessage("user", mdToHtml(q));
+  const sysPrompt = docInput.value.trim()
+    ? SYSTEM_PROMPTS.qa
+    : "You are a helpful assistant. Answer the user's question clearly and concisely.";
+  await invokeChain(sysPrompt, q, "Q&A");
+}
+
+sendBtn.addEventListener("click", handleSend);
+chatInput.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+});
+// Auto-grow textarea
+chatInput.addEventListener("input", () => {
+  chatInput.style.height = "auto";
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + "px";
+});
+
+// ─── Quick-action buttons ──────────────────────────────────────────────────
+document.querySelectorAll(".action-btn").forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const action = btn.dataset.action;
+    const sysPrompt = SYSTEM_PROMPTS[action];
+    if (!sysPrompt) return;
+
+    const labels = {
+      summarize: "📝 Summarize",
+      keypoints: "🎯 Extract Key Points",
+      actions:   "✅ Extract Action Items",
+      sentiment: "💬 Sentiment Analysis",
+      eli5:      "🧒 Explain Simply",
+      critique:  "🔍 Critical Analysis",
+    };
+
+    if (!docInput.value.trim()) {
+      showToast("⚠️  Please add a document first", "err");
+      return;
+    }
+    // `labels` is a hardcoded constant with only emoji + ASCII text values;
+    // there is no user input involved, so a direct template literal is safe.
+    addMessage("user", `<em>${labels[action]}</em>`);
+    await invokeChain(sysPrompt, `Please perform the requested analysis.`, labels[action]);
+  });
+});
+</script>
+</body>
+</html>
